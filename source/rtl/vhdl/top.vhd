@@ -156,6 +156,9 @@ architecture rtl of top is
   signal dir_blue            : std_logic_vector(7 downto 0);
   signal dir_pixel_column    : std_logic_vector(10 downto 0);
   signal dir_pixel_row       : std_logic_vector(10 downto 0);
+  
+  signal offset        : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
+  signal brojac :std_logic_vector(27 downto 0);
 
 begin
 
@@ -168,8 +171,8 @@ begin
   graphics_lenght <= conv_std_logic_vector(MEM_SIZE*8*8, GRAPH_MEM_ADDR_WIDTH);
   
   -- removed to inputs pin
-  direct_mode <= '1';
-  display_mode     <= "10";  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
+  direct_mode <= '0';
+  display_mode     <= "01";  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
   
   font_size        <= x"1";
   show_frame       <= '1';
@@ -250,16 +253,85 @@ begin
   --dir_red
   --dir_green
   --dir_blue
+	
+	dir_red <= x"FF" when dir_pixel_column < 80 else
+				  x"FF" when dir_pixel_column < 160 else
+				  x"00" when dir_pixel_column < 240 else
+				  x"00" when dir_pixel_column < 320 else
+				  x"FF" when dir_pixel_column < 400 else
+				  x"FF" when dir_pixel_column < 480 else
+				  x"00" when dir_pixel_column < 560 else
+				  x"00";
+	
+	dir_green <= x"FF" when dir_pixel_column < 80 else
+				    x"FF" when dir_pixel_column < 160 else
+				    x"FF" when dir_pixel_column < 240 else
+				    x"FF" when dir_pixel_column < 320 else
+				    x"00" when dir_pixel_column < 400 else
+				    x"00" when dir_pixel_column < 480 else
+				    x"00" when dir_pixel_column < 560 else
+				    x"00";
+	
+	dir_blue <= x"FF" when dir_pixel_column < 80 else
+				   x"00" when dir_pixel_column < 160 else
+				   x"FF" when dir_pixel_column < 240 else
+				   x"00" when dir_pixel_column < 320 else
+				   x"FF" when dir_pixel_column < 400 else
+				   x"00" when dir_pixel_column < 480 else
+				   x"FF" when dir_pixel_column < 560 else
+				   x"00";
  
   -- koristeci signale realizovati logiku koja pise po TXT_MEM
   --char_address
   --char_value
   --char_we
-  
-  -- koristeci signale realizovati logiku koja pise po GRAPH_MEM
+	char_we<='1';
+	process(pix_clock_s) begin
+		if(rising_edge(pix_clock_s)) then
+			if(char_address>x"000012c0") then
+				char_address<=(others=>'0');
+			else
+				char_address<=char_address+1;
+			end if;
+		end if;
+	end process;
+	
+	process(pix_clock_s) begin
+		if(rising_edge(pix_clock_s)) then
+			if(brojac=500000) then
+				brojac<=(others=>'0');
+				if(offset=x"0000128B") then
+					offset<=(others=>'0');
+				else
+					offset<=offset+1;
+				end if;
+			else
+				brojac<=brojac+1;
+			end if;
+		end if;
+	end process;
+	
+	char_value<= "01"& x"0" when char_address=41+offset else 
+					 "00"& x"1" when char_address=42+offset else
+					 "01"& x"6" when char_address=43+offset else
+					 "00"& x"c" when char_address=44+offset else
+					 "00"& x"5" when char_address=45+offset else
+					 "10"& x"0" when char_address=46+offset else
+					 "00"& x"9" when char_address=47+offset else
+					 "10"& x"0" when char_address=48+offset else
+					 "00"& x"d" when char_address=49+offset else
+					 "00"& x"9" when char_address=50+offset else
+					 "00"& x"c" when char_address=51+offset else
+					 "00"& x"f" when char_address=52+offset else
+					 "01"& x"3" when char_address=53+offset else
+					 "10"& x"0";
+	-- koristeci signale realizovati logiku koja pise po GRAPH_MEM
   --pixel_address
   --pixel_value
   --pixel_we
+  pixel_we<='1';
   
+  pixel_value<=x"ffffffff" when pixel_address>40 and pixel_address<46 else
+					x"00000000";
   
 end rtl;
