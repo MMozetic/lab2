@@ -13,6 +13,7 @@ library ieee;
 use ieee.std_logic_1164.all;
 use ieee.std_logic_arith.all;
 use ieee.std_logic_unsigned.all;
+use ieee.numeric_std.all;
 
 entity top is
   generic (
@@ -32,7 +33,9 @@ entity top is
     sync_o         : out std_logic;
     red_o          : out std_logic_vector(7 downto 0);
     green_o        : out std_logic_vector(7 downto 0);
-    blue_o         : out std_logic_vector(7 downto 0)
+    blue_o         : out std_logic_vector(7 downto 0);
+	 direct_mode_i  : in std_logic;
+	 display_mode_i : in std_logic_vector(1 downto 0)
    );
 end top;
 
@@ -157,8 +160,10 @@ architecture rtl of top is
   signal dir_pixel_column    : std_logic_vector(10 downto 0);
   signal dir_pixel_row       : std_logic_vector(10 downto 0);
   
-  signal offset        : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
-  signal brojac :std_logic_vector(27 downto 0);
+  signal offset              : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
+  signal brojac 				  : std_logic_vector(27 downto 0);
+  signal pixel_row           : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
+  signal pixel_col           : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
 
 begin
 
@@ -214,14 +219,14 @@ begin
     clk_i              => clk_i,
     reset_n_i          => reset_n_i,
     --
-    direct_mode_i      => direct_mode,
+    direct_mode_i      => direct_mode_i,
     dir_red_i          => dir_red,
     dir_green_i        => dir_green,
     dir_blue_i         => dir_blue,
     dir_pixel_column_o => dir_pixel_column,
     dir_pixel_row_o    => dir_pixel_row,
     -- cfg
-    display_mode_i     => display_mode,  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
+    display_mode_i     => display_mode_i,  -- 01 - text mode, 10 - graphics mode, 11 - text & graphics
     -- text mode interface
     text_addr_i        => char_address,
     text_data_i        => char_value,
@@ -288,7 +293,7 @@ begin
 	char_we<='1';
 	process(pix_clock_s) begin
 		if(rising_edge(pix_clock_s)) then
-			if(char_address>x"000012c0") then
+			if(char_address=x"000004B0") then
 				char_address<=(others=>'0');
 			else
 				char_address<=char_address+1;
@@ -296,11 +301,11 @@ begin
 		end if;
 	end process;
 	
-	process(pix_clock_s) begin
+	process(pix_clock_s,char_address) begin
 		if(rising_edge(pix_clock_s)) then
 			if(brojac=500000) then
 				brojac<=(others=>'0');
-				if(offset=x"0000128B") then
+				if(offset=x"000004A4") then
 					offset<=(others=>'0');
 				else
 					offset<=offset+1;
@@ -311,27 +316,42 @@ begin
 		end if;
 	end process;
 	
-	char_value<= "01"& x"0" when char_address=41+offset else 
-					 "00"& x"1" when char_address=42+offset else
-					 "01"& x"6" when char_address=43+offset else
-					 "00"& x"c" when char_address=44+offset else
-					 "00"& x"5" when char_address=45+offset else
-					 "10"& x"0" when char_address=46+offset else
-					 "00"& x"9" when char_address=47+offset else
-					 "10"& x"0" when char_address=48+offset else
-					 "00"& x"d" when char_address=49+offset else
-					 "00"& x"9" when char_address=50+offset else
-					 "00"& x"c" when char_address=51+offset else
-					 "00"& x"f" when char_address=52+offset else
-					 "01"& x"3" when char_address=53+offset else
+	char_value<= "01"& x"0" when char_address=offset else 
+					 "00"& x"1" when char_address=offset+1 else
+					 "01"& x"6" when char_address=offset+2 else
+					 "00"& x"c" when char_address=offset+3 else
+					 "00"& x"5" when char_address=offset+4 else
+					 "10"& x"0" when char_address=offset+5 else
+					 "00"& x"9" when char_address=offset+6 else
+					 "10"& x"0" when char_address=offset+7 else
+					 "00"& x"d" when char_address=offset+8 else
+					 "00"& x"9" when char_address=offset+9 else
+					 "00"& x"c" when char_address=offset+10 else
+					 "00"& x"f" when char_address=offset+11 else
+					 "01"& x"3" when char_address=offset+12 else
 					 "10"& x"0";
 	-- koristeci signale realizovati logiku koja pise po GRAPH_MEM
   --pixel_address
   --pixel_value
   --pixel_we
-  pixel_we<='1';
+  pixel_we <= '1';
   
-  pixel_value<=x"ffffffff" when pixel_address>40 and pixel_address<46 else
-					x"00000000";
+  process (pix_clock_s) begin
+		if (rising_edge(pix_clock_s)) then
+			if (pixel_col = 20) then
+				pixel_col <= (others => '0');
+				pixel_row <= pixel_row + 20;
+			elsif (pixel_row = 9600) then
+				pixel_col <= (others => '0');
+				pixel_row <= (others => '0');
+			else
+				pixel_col <= pixel_col + 1;
+				pixel_row <= pixel_row;
+			end if;
+		end if;
+	end process;
+
+	pixel_address <= pixel_row + pixel_col;
+	pixel_value <= X"FFFFFFFF" when pixel_row > 1000 and pixel_row < 7000 and pixel_col>4 and pixel_col<15 else X"00000000";
   
 end rtl;
