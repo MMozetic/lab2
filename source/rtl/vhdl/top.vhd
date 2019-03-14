@@ -161,6 +161,10 @@ architecture rtl of top is
   signal dir_pixel_row       : std_logic_vector(10 downto 0);
   
   signal offset              : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
+  signal offset_plus         : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
+  signal offset_minus        : std_logic_vector(MEM_ADDR_WIDTH-1 downto 0);
+  signal kontrola				  : std_logic;
+  signal kontrola1			  : std_logic;
   signal brojac 				  : std_logic_vector(27 downto 0);
   signal pixel_row           : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
   signal pixel_col           : std_logic_vector(GRAPH_MEM_ADDR_WIDTH-1 downto 0);
@@ -301,7 +305,7 @@ begin
 		end if;
 	end process;
 	
-	process(pix_clock_s,char_address) begin
+	process(pix_clock_s) begin
 		if(rising_edge(pix_clock_s)) then
 			if(brojac=500000) then
 				brojac<=(others=>'0');
@@ -351,7 +355,40 @@ begin
 		end if;
 	end process;
 
+--	pixel_address <= pixel_row + pixel_col;
+--	pixel_value <= X"FFFFFFFF" when pixel_row > 1000 and pixel_row < 7000 and pixel_col>4 and pixel_col<15 else X"00000000";
+
+
+	process(pix_clock_s) begin
+		if(rising_edge(pix_clock_s)) then
+			if(brojac=50000) then
+				if(offset_plus=6400) then
+					offset_plus<=(others=>'0');
+					kontrola <= '0';
+				else
+					kontrola <= '1';
+					offset_plus<=offset_plus+20;
+				end if;
+			end if;
+		end if;
+	end process;
+	
+	process(pix_clock_s) begin
+		if(rising_edge(pix_clock_s)) then
+			if(brojac=50000) then
+				if(offset_minus=6400) then
+					offset_minus<=(others=>'0');
+					kontrola1 <= '1';
+				else
+					kontrola1 <= '0';
+					offset_minus<=offset_minus+20;
+				end if;
+			end if;
+		end if;
+	end process;
+
 	pixel_address <= pixel_row + pixel_col;
-	pixel_value <= X"FFFFFFFF" when pixel_row > 1000 and pixel_row < 7000 and pixel_col>4 and pixel_col<15 else X"00000000";
+	pixel_value <= X"FFFFFFFF" when kontrola = '1' and pixel_row > offset_plus and pixel_row < 3200+offset_plus and pixel_col>4 and pixel_col<15 else 
+						X"FFFFFFFF" when kontrola1 = '0' and pixel_row > 6400-offset_minus and pixel_row < 9600-offset_minus and pixel_col>4 and pixel_col<15 else X"00000000";
   
 end rtl;
